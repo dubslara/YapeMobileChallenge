@@ -38,8 +38,9 @@ Carthage/Build
 .DS_Store
 /.build
 /Packages
-/*.xcodeproj
+contents.xcworkspacedata
 xcuserdata/
+xcshareddata/
 DerivedData/
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
 Package.resolved
