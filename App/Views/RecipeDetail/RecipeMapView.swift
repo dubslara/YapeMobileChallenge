@@ -12,10 +12,25 @@ struct RecipeMapView: View {
     @ObservedObject var viewModel: ViewModel
 
     var body: some View {
-        Map(coordinateRegion: $viewModel.region, annotationItems: [viewModel.recipe]) {
-            MapMarker(coordinate: $0.origin.coordinate)
+        Button {
+            viewModel.showingDetail = true
+        } label: {
+            MapAnnotatedView(annotation: viewModel.recipe, coordinate: \.origin.coordinate)
+                .allowsHitTesting(false)
         }
-        .frame(width: 400, height: 300)
+        .navigationLink(isActive: $viewModel.showingDetail) {
+            detailView
+        }
+    }
+
+    var detailView: some View {
+        VStack {
+            MapAnnotatedView(annotation: viewModel.recipe, coordinate: \.origin.coordinate)
+        }
+        .edgesIgnoringSafeArea(.all)
+        .navigationTitle("Location")
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarBackground(Color.white, for: .navigationBar)
     }
     
     init(recipe: Recipe) {
@@ -26,12 +41,28 @@ struct RecipeMapView: View {
 extension RecipeMapView {
     class ViewModel: ObservableObject {
         @Published var recipe: Recipe
-        @Published var region: MKCoordinateRegion
+        @Published var showingDetail: Bool = false
 
         init(recipe: Recipe) {
             self.recipe = recipe
-            self.region = MKCoordinateRegion(center: recipe.origin.coordinate, span: MKCoordinateSpan(latitudeDelta: 10, longitudeDelta: 10))
-            
+        }
+    }
+}
+
+struct MapAnnotatedView<Item: Identifiable>: View {
+    let annotation: Item
+    let coordinate: (Item) -> CLLocationCoordinate2D
+    @State private var region: MKCoordinateRegion
+
+    init(annotation: Item, coordinate: @escaping (Item) -> CLLocationCoordinate2D) {
+        self.annotation = annotation
+        self.coordinate = coordinate
+        self._region = .init(wrappedValue: MKCoordinateRegion(center: coordinate(annotation), span: MKCoordinateSpan(latitudeDelta: 10, longitudeDelta: 10)))
+    }
+    
+    var body: some View {
+        Map(coordinateRegion: $region, annotationItems: [annotation]) { _ in
+            MapMarker(coordinate: coordinate(annotation))
         }
     }
 }

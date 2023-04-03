@@ -9,7 +9,6 @@ import SwiftUI
 
 struct RecipeDetailView: View {
     @ObservedObject var viewModel: ViewModel
-    @State private var isFavorite = false
     @State private var isPresentingLocation = false
 
     var body: some View {
@@ -17,14 +16,17 @@ struct RecipeDetailView: View {
             backgroundView
             sheetView
         }
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbarBackground(Color.clear, for: .navigationBar)
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     var backgroundView: some View {
-        VStack {
+        VStack(spacing: 0) {
             Color.clear
                 .frame(height: 500)
                 .frame(maxWidth: .infinity)
-                .background(
+                .background {
                     AsyncImage(url: viewModel.image) { image in
                         image
                             .resizable()
@@ -32,43 +34,57 @@ struct RecipeDetailView: View {
                     } placeholder: {
                         EmptyView()
                     }
-                )
+                }
                 .clipped()
             Spacer()
         }
-        .edgesIgnoringSafeArea(.top)
+        .background(.ultraThickMaterial)
+        .edgesIgnoringSafeArea(.all)
     }
 
     var sheetView: some View {
         ScrollView {
-            VStack {
+            VStack(spacing: 0) {
                 Spacer()
                     .frame(height: 500 - 200)
                 contentView
-                    .overlay(
+                    .overlay(alignment: .topTrailing) {
                         favoriteButton
                             .padding(.trailing, 30)
-                            .padding(.top, -20),
-                        alignment: .topTrailing
-                    )
+                            .padding(.top, -20)
+                    }
             }
         }
     }
 
     var contentView: some View {
-        VStack {
-            Text(viewModel.title)
-                .font(.largeTitle)
-            Text(viewModel.description)
-                .font(.subheadline)
-                .multilineTextAlignment(.center)
-            recipeMetrics
+        VStack(spacing: .margin * 2) {
+            headerView
+            descriptionView
+            locationView
             ingredientsView
             preparationView
         }
-        .padding(.margin)
-        .background(.thinMaterial)
+        .padding(.horizontal, .margin)
+        .padding(.top, .margin)
+        .background(.ultraThickMaterial)
+        .edgesIgnoringSafeArea(.bottom)
         .cornerRadius(.margin * 2, corners: [.topLeft, .topRight])
+    }
+
+    var headerView: some View {
+        VStack(spacing: .margin) {
+            VStack(spacing: .marginSmall * 0.5) {
+                Text(viewModel.title)
+                    .font(.largeTitle)
+                    .fontWeight(.semibold)
+                    .textCase(.uppercase)
+                Text(viewModel.recipe.summary)
+                    .font(.body)
+                    .multilineTextAlignment(.center)
+            }
+            recipeMetrics
+        }
     }
     
     var recipeMetrics: some View {
@@ -77,59 +93,96 @@ struct RecipeDetailView: View {
                 .textCase(.uppercase)
                 .fontWeight(.medium)
                 .padding(.trailing, 10)
+
             Divider()
                 .frame(height: 20)
+
             HStack {
                 Image(systemName: "person")
                     .fontWeight(.medium)
-                Text(viewModel.diners)
+                Text(viewModel.servings)
                     .fontWeight(.medium)
             }
             .padding(.horizontal, 10)
+
             Divider()
                 .frame(height: 20)
+
             Text(viewModel.difficulty)
                 .textCase(.uppercase)
                 .fontWeight(.medium)
                 .padding(.leading, 10)
         }
     }
-    
-    var ingredientsView: some View {
-        VStack(alignment: .leading) {
-            Text("Ingredients")
-                .font(.title)
-                .fontWeight(.medium)
-            ForEach(viewModel.ingredients, id: \.self) { ingredient in
-                    Text("• \(ingredient)")
-                    .font(.callout)
+
+    var descriptionView: some View {
+        sectionView(title: "Summary") {
+            VStack(alignment: .leading, spacing: .marginSmall) {
+                Text(viewModel.recipe.description)
+                    .font(.body)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    var locationView: some View {
+        sectionView(title: "Origin") {
+            RecipeMapView(recipe: viewModel.recipe)
+                .frame(height: 150)
+                .clipShape(RoundedRectangle(cornerRadius: .marginSmall))
+        }
+
+    }
+    
+    var ingredientsView: some View {
+        sectionView(title: "Ingredients") {
+            VStack(alignment: .leading, spacing: .marginSmall) {
+                ForEach(viewModel.ingredients, id: \.self) { ingredient in
+                    Text("• \(ingredient)")
+                        .font(.callout)
+                }
+            }
+            .padding(.horizontal, .margin)
+        }
     }
     
     var preparationView: some View {
-        VStack(alignment: .leading) {
-            Text("Instructions")
+        sectionView(title: "Preparation") {
+            VStack(alignment: .leading, spacing: .margin) {
+                ForEach(Array(viewModel.instructions.enumerated()), id: \.1) { index, instruction in
+                    HStack(alignment: .top) {
+                        Text("\(index+1))")
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .offset(x: 0, y: 2)
+                        Text(instruction)
+                            .font(.body)
+                    }
+                }
+            }
+            .padding(.horizontal, .marginSmall)
+        }
+    }
+
+    func sectionView<Content: View>(title: String, content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: .marginSmall) {
+            Text(title)
                 .font(.title)
                 .fontWeight(.medium)
-            ForEach(Array(viewModel.instructions.enumerated()), id: \.1) { index, instruction in
-                Text("\(index+1). \(instruction)")
-                    .font(.callout)
-            }
+            content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
     
+
     var favoriteButton: some View {
         Button {
-            isFavorite.toggle()
+            viewModel.recipe.isFavorite.toggle()
         } label: {
             ZStack {
                 Circle()
                     .foregroundColor(.white)
                     .frame(width: 40, height: 40)
-                Image(systemName: isFavorite ? "heart.fill" : "heart")
+                Image(systemName: viewModel.recipe.isFavorite ? "heart.fill" : "heart")
                     .foregroundColor(.red)
                     .font(.system(size: 20))
                     .alignmentGuide(HorizontalAlignment.center) { d in d[HorizontalAlignment.center] }
@@ -167,8 +220,8 @@ extension RecipeDetailView {
             recipe.difficulty
         }
         
-        var diners: String {
-            String(recipe.diners)
+        var servings: String {
+            String(recipe.servings)
         }
         
         var ingredients: [String] {

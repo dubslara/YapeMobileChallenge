@@ -11,89 +11,70 @@ struct HomeView: View {
     @StateObject var viewModel: ViewModel = .init()
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
-                listView
+                contentView
                 searchResultsView
             }
-            .searchable(text: $viewModel.searchText)
+            .alert($viewModel.error)
+            .searchable(text: $viewModel.searchText, placement: .navigationBarDrawer(displayMode: .always))
             .onChange(of: viewModel.searchText) { _ in
                 viewModel.searchRecipes()
             }
             .task {
                 await viewModel.getRecipes()
             }
-            .alert($viewModel.error)
+        }
+    }
+    
+    @ViewBuilder
+    var contentView: some View {
+        List {
+            favoritesListView
+            listView
+        }
+        .animation(.default, value: viewModel.listRecipes.count)
+    }
+
+    @ViewBuilder
+    var favoritesListView: some View {
+        if !viewModel.favoriesRecipes.isEmpty {
+            Section {
+                ForEach(viewModel.favoriesRecipes) { recipe in
+                    RecipeRowView(recipe: recipe, style: .home)
+                        .transition(.slide)
+                }
+            } header: {
+                Text("Favorites")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .textCase(.uppercase)
+            }
         }
     }
 
     var listView: some View {
-        VStack {
-            Text("What are you cooking today?")
-            List {
-                ForEach(viewModel.recipes) { recipe in
-                    RecipeRowView(recipe: recipe, style: .home)
-                }
+        Section {
+            ForEach(viewModel.listRecipes) { recipe in
+                RecipeRowView(recipe: recipe, style: .home)
+                    .transition(.slide)
             }
+        } header: {
+            Text("What are you cooking today?")
+                .font(.headline)
+                .fontWeight(.semibold)
+                .textCase(.uppercase)
         }
     }
 
     @ViewBuilder
     var searchResultsView: some View {
         if let results = viewModel.searchResults {
-            VStack {
-                List {
-                    ForEach(results) { recipe in
-                        RecipeRowView(recipe: recipe, style: .search)
-                    }
-                }
-                Spacer()
-            }
-        }
-    }
-}
-
-extension HomeView {
-    class ViewModel: ObservableObject {
-        @Published var searchText = ""
-        @Published var recipes: [Recipe] = []
-        @Published var showError: Bool = false
-        @Published var error: Error?
-        @Published var searchResults: [Recipe]?
-
-        func getRecipes() async {
-            do {
-                let recipes = try await Network.shared.getRecipes()
-                await MainActor.run {
-                    self.recipes = recipes
-                }
-            } catch {
-                await MainActor.run {
-                    self.error = error
+            List {
+                ForEach(results) { recipe in
+                    RecipeRowView(recipe: recipe, style: .search)
                 }
             }
-        }
-        
-        func searchRecipes() {
-            guard !searchText.isEmpty else {
-                searchResults = nil
-                return
-            }
-
-            let filteredRecipes = recipes.filter { recipe in
-                let nameMatch = recipe.name.localizedCaseInsensitiveContains(searchText)
-                let ingredientMatch = recipe.ingredients.contains { ingredient in
-                    ingredient.localizedCaseInsensitiveContains(searchText)
-                }
-                return nameMatch || ingredientMatch
-            }
-            
-            searchResults = filteredRecipes
-        }
-        
-        func clearSearch() {
-            searchText = ""
-            recipes = []
         }
     }
 }

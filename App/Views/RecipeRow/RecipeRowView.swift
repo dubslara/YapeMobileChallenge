@@ -15,10 +15,27 @@ struct RecipeRowView: View {
         var height: CGFloat {
             switch self {
                 case .home:
-                    return 80
+                    return 100
                 case .search:
-                    return 40
-                    
+                    return 50
+            }
+        }
+
+        var padding: CGFloat {
+            switch self {
+                case .home:
+                    return .margin
+                case .search:
+                    return .marginSmall
+            }
+        }
+
+        var titleFont: Font {
+            switch self {
+                case .home:
+                    return .title
+                case .search:
+                    return .body
             }
         }
     }
@@ -42,14 +59,16 @@ struct RecipeRowView: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: .margin))
 
-            VStack {
+            VStack(alignment: .leading) {
                 Text(viewModel.title)
-                    .font(.title)
-                Text(viewModel.subtitle)
-                    .font(.subheadline)
+                    .font(style.titleFont)
+                if style == .home {
+                    Text(viewModel.subtitle)
+                        .font(.subheadline)
+                }
             }
         }
-        .padding(.margin)
+        .padding(style.padding)
         .frame(height: style.height)
         .onTapGesture {
             viewModel.showDetail = true
